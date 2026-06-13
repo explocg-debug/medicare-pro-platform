@@ -1,16 +1,50 @@
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import WebSocket from "ws";
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
+const SUPABASE_REQUEST_TIMEOUT_MS = 3000;
+
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  const timeoutSignal = AbortSignal.timeout(SUPABASE_REQUEST_TIMEOUT_MS);
+  const signal = init?.signal
+    ? AbortSignal.any([init.signal, timeoutSignal])
+    : timeoutSignal;
+
+  return fetch(input, { ...init, signal });
+}
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isPublic = PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith("/api/"),
+  );
+  const hasSupabaseSession = request.cookies
+    .getAll()
+    .some(({ name }) => name.startsWith("sb-") && name.includes("-auth-token"));
+
+  // Public routes never need proxy-level authentication.
+  if (isPublic) {
+    return NextResponse.next({ request });
+  }
+
+  if (!hasSupabaseSession) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch: fetchWithTimeout,
+      },
       realtime: {
         transport: WebSocket as unknown as typeof globalThis.WebSocket,
       },
@@ -29,33 +63,55 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
-  let userRole: "admin" | "doctor" | "patient" | null = null;
+  let user: User | null = null;
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    userRole = profile?.role ?? "patient";
-  }
+  try {
+    const {
+      data: { user: authenticatedUser },
+    } = await supabase.auth.getUser();
+    user = authenticatedUser;
+  } catch (error) {
+    console.warn(
+      "Supabase authentication is temporarily unavailable:",
+      error instanceof Error ? error.message : String(error),
+    );
 
-  const isPublic = PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith("/api/")
-  );
-
-  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === "/login" || pathname === "/register")) {
+  if (!user) {
     const url = request.nextUrl.clone();
-    url.pathname = `/${userRole}`;
+    url.pathname = "/login";
+    url.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  let userRole: "admin" | "doctor" | "patient" | null = null;
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    userRole = profile?.role ?? "patient";
+  } catch (error) {
+    console.warn(
+      "Supabase profile lookup is temporarily unavailable:",
+      error instanceof Error ? error.message : String(error),
+    );
+
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(url);
   }
 

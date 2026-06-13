@@ -43,7 +43,9 @@ OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
 
 N8N_URL=http://localhost:5678
-N8N_API_KEY=your-n8n-api-key
+N8N_WEBHOOK_PATH=medicare-events
+N8N_WEBHOOK_SECRET=your-long-random-webhook-secret
+N8N_API_KEY=
 
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
@@ -89,13 +91,14 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Demo Accounts
 
-For testing without a Supabase connection, use these built-in demo credentials. Click the role button on the login page for one-click access — no signup required.
+These Supabase Auth accounts are for demonstration and testing only. Do not
+reuse these passwords for production or personal accounts.
 
 | Role | Email | Password | Dashboard |
 |---|---|---|---|
-| Doctor | `doctor@medicare.demo` | `demo123` | `/doctor` |
-| Patient | `patient@medicare.demo` | `demo123` | `/patient` |
-| Admin | `admin@medicare.demo` | `demo123` | `/admin` |
+| Doctor | `doctor.demo@medicarepro.com` | `Doctor@12345` | `/doctor` |
+| Admin | `admin.demo@medicarepro.com` | `Admin@12345` | `/admin` |
+| Patient | `explocg@gmail.com` | `Testuser@01` | `/patient` |
 
 ---
 
@@ -158,31 +161,76 @@ src/
 
 ## AI Features (Ollama)
 
-Make sure Ollama is running locally and a model is pulled:
+Ollama runs the AI model locally on the same Windows computer as the
+Next.js development server.
 
-```bash
+1. Install Ollama for Windows from https://ollama.com/download/windows.
+2. Open a new PowerShell window.
+3. Download the configured model:
+
+```powershell
 ollama pull llama3.2
-ollama serve
 ```
+
+The Windows Ollama app normally starts the API automatically. If it is not
+running, open the Ollama app or run `ollama serve` in a separate terminal.
+
+Verify the service and model:
+
+```powershell
+npm run ai:check
+npm run ai:test
+```
+
+The live status endpoint is `GET /api/ai/health`.
 
 AI is used for:
 - Diagnosis support (Doctor → Diagnoses page)
 - Patient summary generation
 - Report generation
 
+AI output is clinical decision support only. A licensed clinician must review
+all generated content before it is used in patient care.
+
 ---
 
 ## Automation (n8n)
 
-Start n8n locally:
+The project includes a secure, importable notification bridge in
+`n8n/workflows/medicare-notification-bridge.json`.
 
-```bash
-npx n8n
+Install n8n globally:
+
+```powershell
+npm install n8n -g
 ```
 
-Webhook endpoint: `POST /api/webhooks/n8n`
+Start the local instance with the project environment:
 
-Supported events: `appointment.reminder`, `prescription.refill`, `report.ready`
+```powershell
+npm run automation:start
+```
+
+Open `http://localhost:5678`, create the local owner account, then import the
+workflow JSON using **Import from File**. Open the imported workflow and
+publish it so the production webhook is registered.
+
+Verify the local service and published webhook:
+
+```powershell
+npm run automation:check
+npm run automation:test
+```
+
+App-to-n8n endpoint:
+`POST http://localhost:5678/webhook/medicare-events`
+
+n8n-to-app endpoint:
+`POST http://localhost:3000/api/webhooks/n8n`
+
+Supported events: `appointment.reminder`, `prescription.refill`,
+`prescription.created`, `report.ready`, `patient.registered`, and
+`billing.alert`.
 
 ---
 

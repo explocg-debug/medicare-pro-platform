@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,102 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Globe, Bell, Shield, Database, Cpu } from "lucide-react";
+import { Save, Globe, Bell, Shield, Database, Cpu, RefreshCw } from "lucide-react";
+
+type OllamaHealth = {
+  status: "ready" | "model_missing" | "offline";
+  model: string;
+  availableModels: string[];
+  message: string;
+};
+
+type N8nHealth = {
+  status: "ready" | "offline";
+  url: string;
+  webhookPath: string;
+  webhookSecretConfigured: boolean;
+  message: string;
+};
+
+async function fetchOllamaHealth(): Promise<OllamaHealth> {
+  try {
+    const response = await fetch("/api/ai/health", { cache: "no-store" });
+    return (await response.json()) as OllamaHealth;
+  } catch {
+    return {
+      status: "offline",
+      model: "unknown",
+      availableModels: [],
+      message: "Unable to check the local Ollama service.",
+    };
+  }
+}
+
+async function fetchN8nHealth(): Promise<N8nHealth> {
+  try {
+    const response = await fetch("/api/automation/health", {
+      cache: "no-store",
+    });
+    return (await response.json()) as N8nHealth;
+  } catch {
+    return {
+      status: "offline",
+      url: "http://localhost:5678",
+      webhookPath: "medicare-events",
+      webhookSecretConfigured: false,
+      message: "Unable to check the local n8n service.",
+    };
+  }
+}
 
 export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
+  const [ollamaHealth, setOllamaHealth] = useState<OllamaHealth | null>(null);
+  const [checkingOllama, setCheckingOllama] = useState(true);
+  const [n8nHealth, setN8nHealth] = useState<N8nHealth | null>(null);
+  const [checkingN8n, setCheckingN8n] = useState(true);
+
+  const checkOllama = useCallback(async () => {
+    setCheckingOllama(true);
+    setOllamaHealth(await fetchOllamaHealth());
+    setCheckingOllama(false);
+  }, []);
+
+  const checkN8n = useCallback(async () => {
+    setCheckingN8n(true);
+    setN8nHealth(await fetchN8nHealth());
+    setCheckingN8n(false);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    void fetchOllamaHealth().then((health) => {
+      if (active) {
+        setOllamaHealth(health);
+        setCheckingOllama(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    void fetchN8nHealth().then((health) => {
+      if (active) {
+        setN8nHealth(health);
+        setCheckingN8n(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function handleSave() {
     setSaved(true);
@@ -168,9 +260,140 @@ export default function AdminSettingsPage() {
         </TabsContent>
 
         <TabsContent value="integrations" className="mt-4 space-y-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-gray-900">Ollama AI</p>
+                    <Badge
+                      variant={
+                        checkingOllama
+                          ? "secondary"
+                          : ollamaHealth?.status === "ready"
+                            ? "success"
+                            : ollamaHealth?.status === "model_missing"
+                              ? "warning"
+                              : "destructive"
+                      }
+                    >
+                      {checkingOllama
+                        ? "checking"
+                        : ollamaHealth?.status.replace("_", " ") ?? "offline"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    {ollamaHealth?.message ??
+                      "Checking the local AI service and configured model..."}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">OLLAMA_URL</Label>
+                      <Input
+                        value="http://localhost:11434"
+                        readOnly
+                        className="text-sm font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Configured model</Label>
+                      <Input
+                        value={ollamaHealth?.model ?? "llama3.2"}
+                        readOnly
+                        className="text-sm font-mono"
+                      />
+                    </div>
+                  </div>
+                  {ollamaHealth && ollamaHealth.availableModels.length > 0 && (
+                    <p className="mt-3 text-xs text-gray-500">
+                      Installed models: {ollamaHealth.availableModels.join(", ")}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={checkOllama}
+                  disabled={checkingOllama}
+                  className="gap-1.5"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${checkingOllama ? "animate-spin" : ""}`}
+                  />
+                  Recheck
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-gray-900">
+                      n8n Automation
+                    </p>
+                    <Badge
+                      variant={
+                        checkingN8n
+                          ? "secondary"
+                          : n8nHealth?.status === "ready" &&
+                              n8nHealth.webhookSecretConfigured
+                            ? "success"
+                            : n8nHealth?.status === "ready"
+                              ? "warning"
+                              : "destructive"
+                      }
+                    >
+                      {checkingN8n
+                        ? "checking"
+                        : n8nHealth?.status === "ready" &&
+                            !n8nHealth.webhookSecretConfigured
+                          ? "configuration needed"
+                          : n8nHealth?.status ?? "offline"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    {n8nHealth?.message ??
+                      "Checking the local workflow automation service..."}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">N8N_URL</Label>
+                      <Input
+                        value={n8nHealth?.url ?? "http://localhost:5678"}
+                        readOnly
+                        className="text-sm font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Production webhook</Label>
+                      <Input
+                        value={`/webhook/${n8nHealth?.webhookPath ?? "medicare-events"}`}
+                        readOnly
+                        className="text-sm font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={checkN8n}
+                  disabled={checkingN8n}
+                  className="gap-1.5"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${checkingN8n ? "animate-spin" : ""}`}
+                  />
+                  Recheck
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {[
-            { name: "Ollama AI", desc: "Local AI for diagnosis support and report generation", status: "connected", url: "OLLAMA_URL", defaultUrl: "http://localhost:11434" },
-            { name: "n8n Automation", desc: "Workflow automation for reminders and notifications", status: "connected", url: "N8N_URL", defaultUrl: "http://localhost:5678" },
             { name: "Supabase", desc: "Database, auth, and file storage", status: "connected", url: "NEXT_PUBLIC_SUPABASE_URL", defaultUrl: "https://xxx.supabase.co" },
           ].map((integration) => (
             <Card key={integration.name}>

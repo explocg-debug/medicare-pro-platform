@@ -20,6 +20,9 @@
 # production
 /build
 
+# local n8n data
+/.n8n-data/
+
 # misc
 .DS_Store
 *.pem

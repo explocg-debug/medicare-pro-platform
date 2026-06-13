@@ -12,7 +12,12 @@
     "db:lint": "supabase db lint --linked --schema public,private --level warning --fail-on error",
     "db:migrations": "supabase migration list --linked",
     "db:seed:patient": "node --env-file=.env.local scripts/seed-patient-demo.mjs",
-    "user:set-role": "node --env-file=.env.local scripts/set-user-role.mjs"
+    "user:set-role": "node --env-file=.env.local scripts/set-user-role.mjs",
+    "ai:check": "node --env-file=.env.local scripts/check-ollama.mjs",
+    "ai:test": "node --env-file=.env.local scripts/check-ollama.mjs --generate",
+    "automation:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-n8n.ps1",
+    "automation:check": "node --env-file=.env.local scripts/check-n8n.mjs",
+    "automation:test": "node --env-file=.env.local scripts/check-n8n.mjs --webhook"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.13",
