@@ -52,13 +52,32 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### 3. Set up the database
 
-In the Supabase Dashboard, open **SQL Editor** and run the full schema:
+Link the Supabase CLI and apply the versioned migrations:
 
-```
-supabase/schema.sql
+```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npm run db:push
+npm run db:types
 ```
 
-### 4. Run the development server
+Database migrations are stored in `supabase/migrations/`.
+
+### 4. Bootstrap the first administrator
+
+Register the account normally, then promote it with the server-only role command:
+
+```bash
+npm run user:set-role -- admin@example.com admin
+```
+
+To create a doctor account, include specialization and license number:
+
+```bash
+npm run user:set-role -- doctor@example.com doctor "Cardiology" "LICENSE-123"
+```
+
+### 5. Run the development server
 
 ```bash
 npm run dev

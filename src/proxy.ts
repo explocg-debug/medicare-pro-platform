@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import WebSocket from "ws";
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
 
@@ -10,6 +11,9 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      realtime: {
+        transport: WebSocket as unknown as typeof globalThis.WebSocket,
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -27,16 +31,20 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
+  let userRole: "admin" | "doctor" | "patient" | null = null;
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    userRole = profile?.role ?? "patient";
+  }
 
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith("/api/")
   );
-
-  // Allow demo sessions through without a real Supabase account
-  const demoSession = request.cookies.get("demo_session");
-  if (demoSession && !isPublic) {
-    return supabaseResponse;
-  }
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
@@ -46,15 +54,19 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && (pathname === "/login" || pathname === "/register")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    const role = profile?.role || "patient";
     const url = request.nextUrl.clone();
-    url.pathname = `/${role}`;
+    url.pathname = `/${userRole}`;
+    return NextResponse.redirect(url);
+  }
+
+  const requestedPortal = (["admin", "doctor", "patient"] as const).find(
+    (role) => pathname === `/${role}` || pathname.startsWith(`/${role}/`),
+  );
+
+  if (user && requestedPortal && requestedPortal !== userRole) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${userRole}`;
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

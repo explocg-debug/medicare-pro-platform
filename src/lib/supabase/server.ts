@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import WebSocket from "ws";
 import type { Database } from "@/types/database";
 
 export async function createClient() {
@@ -8,6 +9,9 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      realtime: {
+        transport: WebSocket as unknown as typeof globalThis.WebSocket,
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

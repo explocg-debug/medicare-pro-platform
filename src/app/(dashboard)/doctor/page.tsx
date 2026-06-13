@@ -8,6 +8,7 @@ import {
   Users, Calendar, ClipboardList, Activity, TrendingUp, Clock, ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useProfileName } from "@/hooks/use-profile-name";
 import { formatDate, formatTime, getInitials } from "@/lib/utils";
 
 const stats = [
@@ -48,13 +49,16 @@ const statusStyles = {
 
 export default function DoctorOverviewPage() {
   const today = formatDate(new Date());
+  const userName = useProfileName("Doctor");
 
   return (
     <div className="space-y-6 max-w-full">
       {/* Welcome */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Good morning, Dr. Johnson</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Good morning, {userName}
+          </h2>
           <p className="text-sm text-gray-500 mt-0.5">{today} — You have 8 appointments today</p>
         </div>
         <Link href="/doctor/appointments/new">

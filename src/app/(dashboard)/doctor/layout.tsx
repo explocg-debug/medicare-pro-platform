@@ -2,6 +2,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopNav } from "@/components/layout/TopNav";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { useProfileName } from "@/hooks/use-profile-name";
 import {
   LayoutDashboard, Users, Calendar, FileText, Activity,
   Bell, Settings, Stethoscope, ClipboardList,
@@ -20,10 +21,12 @@ const navItems = [
 ];
 
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
+  const userName = useProfileName("Doctor");
+
   return (
     <DashboardShell
-      sidebar={<Sidebar items={navItems} role="doctor" userName="Dr. Sarah Johnson" />}
-      topNav={<TopNav title="Doctor Dashboard" role="doctor" userName="Dr. Sarah Johnson" notificationCount={3} />}
+      sidebar={<Sidebar items={navItems} role="doctor" userName={userName} />}
+      topNav={<TopNav title="Doctor Dashboard" role="doctor" userName={userName} notificationCount={3} />}
     >
       {children}
     </DashboardShell>

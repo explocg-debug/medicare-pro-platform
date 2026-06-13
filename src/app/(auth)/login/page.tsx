@@ -9,12 +9,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { createClient } from "@/lib/supabase/client";
 import { Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
 
-const DEMO_ACCOUNTS = [
-  { role: "Doctor", email: "doctor@medicare.demo", password: "demo123", href: "/doctor" },
-  { role: "Patient", email: "patient@medicare.demo", password: "demo123", href: "/patient" },
-  { role: "Admin", email: "admin@medicare.demo", password: "demo123", href: "/admin" },
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -27,13 +21,6 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
-    // Demo bypass — no Supabase needed
-    const demo = DEMO_ACCOUNTS.find((d) => d.email === email && d.password === password);
-    if (demo) {
-      router.push(demo.href);
-      return;
-    }
 
     const supabase = createClient();
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
@@ -56,14 +43,6 @@ export default function LoginPage() {
       router.refresh();
     }
     setLoading(false);
-  }
-
-  function loginAsDemo(account: typeof DEMO_ACCOUNTS[0]) {
-    document.cookie = `demo_session=${account.role.toLowerCase()}; path=/; max-age=86400`;
-    setEmail(account.email);
-    setPassword(account.password);
-    setLoading(true);
-    router.push(account.href);
   }
 
   return (
@@ -132,28 +111,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-100" />
-            </div>
-            <div className="relative flex justify-center text-xs text-gray-400 bg-white px-2">
-              Quick demo access
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account.role}
-                type="button"
-                onClick={() => loginAsDemo(account)}
-                className="text-xs border border-gray-200 rounded-lg py-2.5 px-1 text-gray-600 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors text-center font-medium"
-              >
-                {account.role}
-              </button>
-            ))}
-          </div>
-          <p className="text-center text-xs text-gray-400">One click — no signup needed</p>
         </CardContent>
 
         <CardFooter className="justify-center pt-0">

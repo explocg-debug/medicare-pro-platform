@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:push": "supabase db push --linked",
+    "db:types": "supabase gen types typescript --linked --schema public",
+    "db:lint": "supabase db lint --linked --schema public,private --level warning --fail-on error",
+    "db:migrations": "supabase migration list --linked",
+    "db:seed:patient": "node --env-file=.env.local scripts/seed-patient-demo.mjs",
+    "user:set-role": "node --env-file=.env.local scripts/set-user-role.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.13",
@@ -39,15 +45,18 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "supabase": "^2.106.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

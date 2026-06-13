@@ -43,7 +43,13 @@ export function TopNav({ title, userName = "User", avatarUrl, notificationCount 
           </div>
         )}
 
-        <Button variant="ghost" size="icon" className="relative h-8 w-8">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-8 w-8"
+          onClick={() => router.push(`/${role}/notifications`)}
+          aria-label="Open notifications"
+        >
           <Bell className="h-4 w-4 text-gray-500" />
           {notificationCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">

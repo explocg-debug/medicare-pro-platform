@@ -2,6 +2,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopNav } from "@/components/layout/TopNav";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { useProfileName } from "@/hooks/use-profile-name";
 import {
   LayoutDashboard, Users, UserCheck, BarChart3, Shield, Calendar,
   CreditCard, Settings, ScrollText, Bell,
@@ -21,10 +22,12 @@ const navItems = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const userName = useProfileName("Administrator");
+
   return (
     <DashboardShell
-      sidebar={<Sidebar items={navItems} role="admin" userName="Admin User" />}
-      topNav={<TopNav title="Admin Dashboard" role="admin" userName="Admin User" notificationCount={2} />}
+      sidebar={<Sidebar items={navItems} role="admin" userName={userName} />}
+      topNav={<TopNav title="Admin Dashboard" role="admin" userName={userName} notificationCount={2} />}
     >
       {children}
     </DashboardShell>
