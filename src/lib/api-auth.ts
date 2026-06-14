@@ -34,13 +34,24 @@ export async function requireApiRole(
     };
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const [profileResult, accessRequestResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("role_requests")
+      .select("status")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
 
-  if (profileError || !profile) {
+  if (
+    profileResult.error ||
+    accessRequestResult.error ||
+    !profileResult.data
+  ) {
     return {
       ok: false,
       status: 500,
@@ -48,7 +59,18 @@ export async function requireApiRole(
     };
   }
 
-  if (!allowedRoles.includes(profile.role)) {
+  if (
+    accessRequestResult.data &&
+    accessRequestResult.data.status !== "approved"
+  ) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Administrator approval is required before using this feature.",
+    };
+  }
+
+  if (!allowedRoles.includes(profileResult.data.role)) {
     return {
       ok: false,
       status: 403,
@@ -59,6 +81,6 @@ export async function requireApiRole(
   return {
     ok: true,
     userId: user.id,
-    role: profile.role,
+    role: profileResult.data.role,
   };
 }

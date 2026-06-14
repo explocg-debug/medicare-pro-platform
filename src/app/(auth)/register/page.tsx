@@ -75,32 +75,57 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: form.email.trim(),
-      password: form.password,
-      options: {
-        data: {
-          full_name: form.fullName.trim(),
-          requested_role: form.role,
-          doctor_specialization:
-            form.role === "doctor" ? form.specialization.trim() : null,
-          doctor_license_number:
-            form.role === "doctor" ? form.licenseNumber.trim() : null,
-        },
-      },
-    });
+    try {
+      if (form.role === "patient") {
+        const response = await fetch("/api/auth/register/patient", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: form.fullName,
+            email: form.email,
+            password: form.password,
+          }),
+        });
+        const result = (await response.json()) as { error?: string };
 
-    setLoading(false);
+        if (!response.ok) {
+          setError(result.error || "Unable to create your account.");
+          return;
+        }
+      } else {
+        const supabase = createClient();
+        const { data, error: authError } = await supabase.auth.signUp({
+          email: form.email.trim(),
+          password: form.password,
+          options: {
+            data: {
+              full_name: form.fullName.trim(),
+              requested_role: form.role,
+              doctor_specialization:
+                form.role === "doctor" ? form.specialization.trim() : null,
+              doctor_license_number:
+                form.role === "doctor" ? form.licenseNumber.trim() : null,
+            },
+          },
+        });
 
-    if (authError) {
-      setError(authError.message);
-      return;
-    }
+        if (authError) {
+          setError(authError.message);
+          return;
+        }
 
-    if (data.user) {
+        if (!data.user) {
+          setError("Unable to create your account.");
+          return;
+        }
+      }
+
       setSuccess(true);
-      setTimeout(() => router.push("/login"), 3500);
+      setTimeout(() => router.push("/login"), 4500);
+    } catch {
+      setError("Unable to create your account right now.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -114,8 +139,8 @@ export default function RegisterPage() {
           </h2>
           <p className="text-sm text-gray-500">
             {form.role === "patient"
-              ? "Confirm your email, then sign in to the Patient Portal."
-              : `Your ${form.role} access request is pending administrator approval.`}
+              ? "Your patient account is ready. No email verification is required; you can sign in now."
+              : `Verify your email, then wait for an administrator to approve your ${form.role} access before signing in.`}
           </p>
           <p className="mt-2 text-xs text-gray-400">
             Redirecting you to login...
@@ -225,8 +250,8 @@ export default function RegisterPage() {
               )}
               <p>
                 {privilegedRole
-                  ? `${form.role === "doctor" ? "Doctor" : "Administrator"} access requires administrator approval after signup.`
-                  : "Patient access is available after email confirmation."}
+                  ? `${form.role === "doctor" ? "Doctor" : "Administrator"} access requires email verification and administrator approval.`
+                  : "Patient accounts do not require email verification."}
               </p>
             </div>
 

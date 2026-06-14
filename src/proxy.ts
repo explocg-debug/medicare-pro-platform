@@ -90,19 +90,28 @@ export async function proxy(request: NextRequest) {
   }
 
   let userRole: "admin" | "doctor" | "patient" | null = null;
+  let accessRequestStatus: string | null = null;
 
   try {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    const [profileResult, accessRequestResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("role_requests")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
 
-    if (profileError) {
-      throw profileError;
+    if (profileResult.error || accessRequestResult.error) {
+      throw profileResult.error || accessRequestResult.error;
     }
 
-    userRole = profile?.role ?? "patient";
+    userRole = profileResult.data?.role ?? "patient";
+    accessRequestStatus = accessRequestResult.data?.status ?? null;
   } catch (error) {
     console.warn(
       "Supabase profile lookup is temporarily unavailable:",
@@ -112,6 +121,13 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (accessRequestStatus && accessRequestStatus !== "approved") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("approval", accessRequestStatus);
     return NextResponse.redirect(url);
   }
 

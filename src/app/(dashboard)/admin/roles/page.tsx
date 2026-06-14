@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Check,
   Loader2,
@@ -83,6 +84,7 @@ const roleDefinitions: Array<{
 ];
 
 export default function AdminRolesPage() {
+  const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<UserRole>("admin");
   const [requests, setRequests] = useState<RoleRequest[]>([]);
   const [admins, setAdmins] = useState<
@@ -97,8 +99,10 @@ export default function AdminRolesPage() {
   const [reviewingId, setReviewingId] = useState("");
   const [error, setError] = useState("");
 
-  const loadAccessData = useCallback(async () => {
-    setLoading(true);
+  const loadAccessData = useCallback(async (showLoader = true) => {
+    if (showLoader) {
+      setLoading(true);
+    }
     setError("");
     const supabase = createClient();
     const [requestResult, profileResult, adminResult] = await Promise.all([
@@ -121,7 +125,9 @@ export default function AdminRolesPage() {
       requestResult.error || profileResult.error || adminResult.error;
     if (firstError) {
       setError(firstError.message);
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -137,14 +143,23 @@ export default function AdminRolesPage() {
     setRequests((requestResult.data ?? []) as RoleRequest[]);
     setAdmins(adminResult.data ?? []);
     setCounts(nextCounts);
-    setLoading(false);
+    if (showLoader) {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadAccessData();
     }, 0);
-    return () => window.clearTimeout(timer);
+    const interval = window.setInterval(() => {
+      void loadAccessData(false);
+    }, 10000);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
   }, [loadAccessData]);
 
   async function reviewRequest(request: RoleRequest, approve: boolean) {
@@ -176,6 +191,7 @@ export default function AdminRolesPage() {
     }
 
     await loadAccessData();
+    router.refresh();
   }
 
   const activeDefinition =

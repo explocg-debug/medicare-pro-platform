@@ -23,7 +23,10 @@ export default function LoginPage() {
     setError("");
 
     const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
     if (authError) {
       setError(authError.message);
@@ -32,11 +35,38 @@ export default function LoginPage() {
     }
 
     if (data.user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
+      const [{ data: profile, error: profileError }, requestResult] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", data.user.id)
+            .single(),
+          supabase
+            .from("role_requests")
+            .select("status, requested_role, review_note")
+            .eq("user_id", data.user.id)
+            .maybeSingle(),
+        ]);
+
+      if (profileError || requestResult.error) {
+        await supabase.auth.signOut();
+        setError("Unable to verify your account access. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (requestResult.data && requestResult.data.status !== "approved") {
+        await supabase.auth.signOut();
+        setError(
+          requestResult.data.status === "rejected"
+            ? requestResult.data.review_note ||
+                "Your access request was not approved. Contact an administrator."
+            : "Verify your email and wait for administrator approval before signing in.",
+        );
+        setLoading(false);
+        return;
+      }
 
       const role = profile?.role || "patient";
       router.push(`/${role}`);
